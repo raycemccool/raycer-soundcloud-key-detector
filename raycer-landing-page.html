@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>raycer. — SoundCloud Key Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --white: #ffffff;
+      --white-60: rgba(255, 255, 255, 0.6);
+      --white-30: rgba(255, 255, 255, 0.3);
+      --white-15: rgba(255, 255, 255, 0.15);
+      --white-08: rgba(255, 255, 255, 0.08);
+      --white-04: rgba(255, 255, 255, 0.04);
+      --bg: #050505;
+      --card: #0a0a0a;
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--white-60);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise overlay ─────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ── Container ─────────────────────────── */
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ── Navigation ────────────────────────── */
+    nav {
+      display: flex;
+      align-items: center;
+      padding: 40px 0 80px;
+    }
+
+    .nav-brand {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+      text-decoration: none;
+    }
+
+    .nav-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--white-15);
+      letter-spacing: 2px;
+      margin-left: 12px;
+      padding-left: 12px;
+      border-left: 1px solid var(--white-08);
+    }
+
+    /* ── Hero ───────────────────────────────── */
+    .hero {
+      padding-bottom: 80px;
+    }
+
+    .hero-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--white-15);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1.08;
+      letter-spacing: -1.5px;
+      margin-bottom: 24px;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      font-weight: 300;
+      color: var(--white-30);
+      max-width: 420px;
+      line-height: 1.7;
+    }
+
+    /* ── Preview card ──────────────────────── */
+    .preview {
+      margin-bottom: 80px;
+      padding: 28px;
+      background: var(--card);
+      border: 1px solid var(--white-08);
+      border-radius: 12px;
+      position: relative;
+    }
+
+    .preview::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 28px;
+      right: 28px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--white-15), transparent);
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 20px;
+    }
+
+    .preview-brand {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.2px;
+    }
+
+    .preview-div {
+      width: 1px;
+      height: 11px;
+      background: var(--white-15);
+      margin: 0 10px;
+    }
+
+    .preview-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--white-15);
+      letter-spacing: 1.5px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      flex: 1;
+      text-align: center;
+      padding: 18px 12px;
+      border-radius: 8px;
+      background: var(--white-04);
+      border: 1px solid var(--white-08);
+    }
+
+    .stat--key { border-left: 2px solid rgba(255, 255, 255, 0.5); }
+    .stat--cam { border-left: 2px solid rgba(255, 255, 255, 0.25); }
+    .stat--bpm { border-left: 2px solid rgba(255, 255, 255, 0.12); }
+
+    .stat-val {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--white);
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--white-15);
+      margin-top: 6px;
+    }
+
+    .compat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .compat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--white-15);
+    }
+
+    .compat-arrow {
+      font-size: 11px;
+      color: var(--white-08);
+    }
+
+    .pill {
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--white-04);
+      color: var(--white-60);
+      border: 1px solid var(--white-08);
+    }
+
+    /* ── Features ──────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-bottom: 80px;
+    }
+
+    @media (max-width: 560px) {
+      .features { grid-template-columns: 1fr; }
+    }
+
+    .feature {
+      padding: 28px 22px;
+      background: var(--card);
+      border: 1px solid var(--white-08);
+    }
+
+    .feature:first-child { border-radius: 10px 0 0 10px; }
+    .feature:last-child { border-radius: 0 10px 10px 0; }
+
+    @media (max-width: 560px) {
+      .feature:first-child { border-radius: 10px 10px 0 0; }
+      .feature:last-child { border-radius: 0 0 10px 10px; }
+    }
+
+    .feature-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--white-08);
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .feature h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    .feature p {
+      font-size: 13px;
+      font-weight: 300;
+      color: var(--white-30);
+      line-height: 1.6;
+    }
+
+    /* ── How it works ──────────────────────── */
+    .steps {
+      margin-bottom: 80px;
+    }
+
+    .steps-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--white-15);
+      margin-bottom: 28px;
+    }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--white-04);
+    }
+
+    .step:first-of-type {
+      border-top: 1px solid var(--white-04);
+    }
+
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--white-08);
+      min-width: 28px;
+      padding-top: 2px;
+    }
+
+    .step-text {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--white-60);
+    }
+
+    .step-text strong {
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    .step-text code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--white-04);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--white-60);
+    }
+
+    /* ── Footer ────────────────────────────── */
+    footer {
+      padding: 40px 0 60px;
+      border-top: 1px solid var(--white-04);
+      text-align: center;
+    }
+
+    footer p {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--white-08);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    footer a {
+      color: var(--white-15);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    footer a:hover {
+      color: var(--white-60);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+
+    <nav>
+      <a href="#" class="nav-brand">raycer.</a>
+      <span class="nav-tag">soundcloud key detector</span>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-eyebrow">chrome extension</div>
+      <h1>Know every<br>key before<br>you mix.</h1>
+      <p class="hero-sub">See the musical key, Camelot code, BPM, and harmonic mixing suggestions on every SoundCloud track.</p>
+    </section>
+
+    <div class="preview">
+      <div class="preview-header">
+        <span class="preview-brand">raycer.</span>
+        <span class="preview-div"></span>
+        <span class="preview-label">key detector</span>
+      </div>
+      <div class="stats">
+        <div class="stat stat--key">
+          <span class="stat-val">Em</span>
+          <span class="stat-label">key</span>
+        </div>
+        <div class="stat stat--cam">
+          <span class="stat-val">9A</span>
+          <span class="stat-label">camelot</span>
+        </div>
+        <div class="stat stat--bpm">
+          <span class="stat-val">128</span>
+          <span class="stat-label">bpm</span>
+        </div>
+      </div>
+      <div class="compat">
+        <span class="compat-label">mix with</span>
+        <span class="compat-arrow">→</span>
+        <span class="pill">8A</span>
+        <span class="pill">10A</span>
+        <span class="pill">9B</span>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-num">01</div>
+        <h3>Key Detection</h3>
+        <p>Musical key and mode for any track on SoundCloud.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">02</div>
+        <h3>Camelot Wheel</h3>
+        <p>Camelot notation plus compatible keys for harmonic mixing.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">03</div>
+        <h3>Instant</h3>
+        <p>Searches 70M+ tracks. Results cached for fast repeat visits.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="steps-title">setup</div>
+      <div class="step">
+        <span class="step-num">01</span>
+        <span class="step-text">Get a free API key from <strong><a href="https://getsongbpm.com/api" style="color: inherit;">getsongbpm.com/api</a></strong></span>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <span class="step-text">Open <code>background.js</code> and paste your key on line 7</span>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <span class="step-text">Go to <code>chrome://extensions</code>, enable Developer mode, click <strong>Load unpacked</strong></span>
+      </div>
+      <div class="step">
+        <span class="step-num">04</span>
+        <span class="step-text">Navigate to any SoundCloud track — done.</span>
+      </div>
+    </div>
+
+    <footer>
+      <p>track data powered by <a href="https://getsongbpm.com">GetSongBPM.com</a></p>
+      <p>built by raycer.</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
